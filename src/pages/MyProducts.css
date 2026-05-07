@@ -1,0 +1,95 @@
+.myprod-page { padding: 2rem 0 4rem; min-height: 80vh; }
+
+.myprod-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.myprod-title { font-size: 28px; font-weight: 800; color: var(--text); }
+.myprod-sub { font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+.myprod-search { margin-bottom: 20px; }
+
+.myprod-empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--muted);
+}
+.myprod-empty-icon { font-size: 64px; margin-bottom: 16px; }
+.myprod-empty h3 { font-size: 20px; color: var(--text); margin-bottom: 8px; }
+.myprod-empty p { margin-bottom: 24px; }
+
+.myprod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.myprod-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s;
+}
+.myprod-card:hover { box-shadow: var(--shadow-lg); }
+
+.myprod-img {
+  position: relative;
+  height: 160px;
+  background: #EEF4FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.myprod-img img { width: 100%; height: 100%; object-fit: cover; }
+.myprod-emoji { font-size: 56px; }
+
+.myprod-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.status-active { background: rgba(16,185,129,0.15); color: var(--success); }
+.status-out { background: rgba(239,68,68,0.15); color: var(--error); }
+
+.myprod-info {
+  padding: 14px 16px 10px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.myprod-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.myprod-meta { display: flex; justify-content: space-between; align-items: center; }
+.myprod-price { font-size: 16px; font-weight: 800; color: var(--blue-dark); }
+.myprod-stock { font-size: 12px; color: var(--muted); }
+
+.myprod-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+}
+.myprod-actions .btn { flex: 1; }
+
+.btn-sm { padding: 8px 12px !important; font-size: 13px !important; }
+.btn-danger { background: var(--error) !important; color: #fff !important; border: none !important; }
+.btn-danger:hover:not(:disabled) { filter: brightness(0.88); }

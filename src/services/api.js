@@ -77,20 +77,26 @@ export const conversationService = {
   create: (data) => api.post('/conversations', data),
   getAll: () => api.get('/conversations'),
   getById: (id) => api.get(`/conversations/${id}`),
+  getMessages: (id, params) => api.get(`/conversations/${id}/messages`, { params }),
   sendMessage: (id, data) => api.post(`/conversations/${id}/messages`, data),
 };
 
 // Servicios de reseñas
 export const reviewService = {
   create: (data) => api.post('/reviews', data),
-  getBySeller: (sellerId) => api.get('/reviews', { params: { sellerId } }),
+  getBySeller: (sellerId, params) => api.get('/reviews', { params: { sellerId, ...params } }),
 };
 
 // Servicios de notificaciones
 export const notificationService = {
   getAll: () => api.get('/notifications'),
-  markAsRead: (id) => api.patch(`/notifications/${id}/read`),
-  markAllAsRead: () => api.patch('/notifications/read-all'),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/read-all'),
+};
+
+// Servicios de reportes
+export const reportService = {
+  create: (data) => api.post('/reports', data),
 };
 
 // Servicios de admin
@@ -99,7 +105,11 @@ export const adminService = {
   getUsers: () => api.get('/admin/users'),
   getProducts: () => api.get('/admin/products'),
   getOrders: () => api.get('/admin/orders'),
+  deleteProduct: (id) => api.delete(`/admin/products/${id}`),
   deactivateProduct: (id) => api.patch(`/admin/products/${id}/deactivate`),
+  updateUserStatus: (id, data) => api.put(`/admin/users/${id}/status`, data),
+  getReports: (params) => api.get('/admin/reports', { params }),
+  resolveReport: (id) => api.put(`/admin/reports/${id}/resolve`),
 };
 
 export default api;

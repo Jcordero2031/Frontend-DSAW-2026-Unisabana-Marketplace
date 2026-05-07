@@ -22,6 +22,7 @@ import MySales from './pages/MySales';
 import Conversations from './pages/Conversations';
 import ConversationDetail from './pages/ConversationDetail';
 import Notifications from './pages/Notifications';
+import Admin from './pages/Admin';
 
 // Mobile components
 import NavbarMobile from './components/mobile/NavbarMobile';
@@ -45,6 +46,13 @@ const SellerRoute = ({ children }) => {
   const { isSeller, loading } = useAuth();
   if (loading) return <div className="flex-center" style={{ minHeight: '100vh' }}><div className="spinner" /></div>;
   return isSeller() ? children : <Navigate to="/become-seller" />;
+};
+
+// Role-based authorization middleware (Ticket 18)
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="flex-center" style={{ minHeight: '100vh' }}><div className="spinner" /></div>;
+  return user?.role === 'admin' ? children : <Navigate to="/" />;
 };
 
 function AppRoutes() {
@@ -71,6 +79,7 @@ function AppRoutes() {
           <Route path="/edit-product/:id" element={<ProtectedRoute><SellerRoute><CreateProduct /></SellerRoute></ProtectedRoute>} />
           <Route path="/my-products" element={<ProtectedRoute><SellerRoute><MyProducts /></SellerRoute></ProtectedRoute>} />
           <Route path="/my-sales" element={<ProtectedRoute><SellerRoute><MySales /></SellerRoute></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><AdminRoute><Admin /></AdminRoute></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         <BottomNav />
@@ -98,6 +107,7 @@ function AppRoutes() {
         <Route path="/edit-product/:id" element={<ProtectedRoute><SellerRoute><CreateProduct /></SellerRoute></ProtectedRoute>} />
         <Route path="/my-products" element={<ProtectedRoute><SellerRoute><MyProducts /></SellerRoute></ProtectedRoute>} />
         <Route path="/my-sales" element={<ProtectedRoute><SellerRoute><MySales /></SellerRoute></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><AdminRoute><Admin /></AdminRoute></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </div>
