@@ -1,0 +1,12 @@
+.sales-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.sales-buyer {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.sales-buyer strong { color: var(--text); }

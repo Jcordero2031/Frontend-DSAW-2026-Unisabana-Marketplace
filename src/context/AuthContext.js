@@ -5,10 +5,15 @@ const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth debe usarse dentro de un AuthProvider');
-  }
+  if (!context) throw new Error('useAuth debe usarse dentro de un AuthProvider');
   return context;
+};
+
+// Accepts both role:'seller' (string) and roles:['seller'] (array) from the API
+const hasRole = (user, role) => {
+  if (!user) return false;
+  if (Array.isArray(user.roles)) return user.roles.includes(role);
+  return user.role === role;
 };
 
 export const AuthProvider = ({ children }) => {
@@ -16,12 +21,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Cargar usuario desde localStorage al iniciar
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-    
     if (token && savedUser) {
-      setUser(JSON.parse(savedUser));
+      try { setUser(JSON.parse(savedUser)); } catch {}
     }
     setLoading(false);
   }, []);
@@ -30,17 +33,12 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.login({ email, password });
       const { token, user } = response.data;
-      
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
-      
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Error al iniciar sesión' 
-      };
+      return { success: false, error: error.response?.data?.error || 'Error al iniciar sesión' };
     }
   };
 
@@ -49,10 +47,7 @@ export const AuthProvider = ({ children }) => {
       const response = await authService.register({ name, email, password });
       return { success: true, data: response.data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Error al registrarse' 
-      };
+      return { success: false, error: error.response?.data?.error || 'Error al registrarse' };
     }
   };
 
@@ -66,26 +61,22 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.becomeSeller();
       const updatedUser = response.data.user;
-      
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
-      
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Error al convertirse en vendedor' 
-      };
+      return { success: false, error: error.response?.data?.error || 'Error al convertirse en vendedor' };
     }
   };
 
-  const isSeller = () => {
-    return user?.roles?.includes('seller') || false;
+  const updateLocalUser = (updates) => {
+    const updated = { ...user, ...updates };
+    localStorage.setItem('user', JSON.stringify(updated));
+    setUser(updated);
   };
 
-  const isAdmin = () => {
-    return user?.roles?.includes('admin') || false;
-  };
+  const isSeller = () => hasRole(user, 'seller');
+  const isAdmin = () => hasRole(user, 'admin');
 
   const value = {
     user,
@@ -94,6 +85,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     becomeSeller,
+    updateLocalUser,
     isSeller,
     isAdmin,
     isAuthenticated: !!user,

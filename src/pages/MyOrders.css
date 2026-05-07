@@ -1,0 +1,82 @@
+.orders-page { padding: 2rem 0 4rem; min-height: 80vh; }
+
+.orders-title { font-size: 28px; font-weight: 800; color: var(--text); }
+.orders-sub { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
+
+.orders-empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--muted);
+}
+.orders-empty-icon { font-size: 64px; margin-bottom: 16px; }
+.orders-empty h3 { font-size: 20px; color: var(--text); margin-bottom: 8px; }
+
+.orders-list { display: flex; flex-direction: column; gap: 20px; }
+
+.order-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.order-id { font-size: 14px; font-weight: 700; color: var(--text); font-family: monospace; }
+.order-date { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.order-status-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.order-items { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+
+.order-item-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.order-item-row:last-child { border-bottom: none; }
+
+.order-item-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background: #EEF4FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 24px;
+}
+.order-item-img img { width: 100%; height: 100%; object-fit: cover; }
+.order-item-info { flex: 1; }
+.order-item-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.order-item-qty { font-size: 13px; color: var(--muted); }
+.order-item-price { font-size: 15px; font-weight: 700; color: var(--blue-dark); flex-shrink: 0; }
+
+.order-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.order-total { font-size: 15px; color: var(--text); }
+.order-total strong { font-size: 18px; color: var(--blue-dark); }
+
+.btn-sm { padding: 8px 16px !important; font-size: 13px !important; }
