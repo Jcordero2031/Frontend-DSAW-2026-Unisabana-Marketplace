@@ -6,7 +6,7 @@ import { validators, validateForm } from '../utils/validators';
 import './Profile.css';
 
 const Profile = () => {
-  const { user, updateLocalUser, logout, isSeller } = useAuth();
+  const { user, logout, isSeller } = useAuth();
   const navigate = useNavigate();
 
   const [tab, setTab] = useState('info');
