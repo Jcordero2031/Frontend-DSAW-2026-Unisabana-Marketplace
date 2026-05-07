@@ -69,9 +69,9 @@ function Footer() {
           </div>
           <div className="footer-col">
             <h4>Universidad</h4>
-            <a href="#">Reglamento</a>
-            <a href="#">Ayuda</a>
-            <a href="#">Reportar problema</a>
+            <span style={{ display: 'block', fontSize: 13, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>Reglamento</span>
+            <span style={{ display: 'block', fontSize: 13, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>Ayuda</span>
+            <span style={{ display: 'block', fontSize: 13, color: 'rgba(255,255,255,0.65)', marginBottom: 8 }}>Reportar problema</span>
           </div>
         </div>
         <div className="footer-bottom">
