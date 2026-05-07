@@ -108,7 +108,6 @@ export const adminService = {
   getProducts: () => api.get('/admin/products'),
   getOrders: () => api.get('/admin/orders'),
   deleteProduct: (id) => api.delete(`/admin/products/${id}`),
-  deactivateProduct: (id) => api.patch(`/admin/products/${id}/deactivate`),
   updateUserStatus: (id, data) => api.put(`/admin/users/${id}/status`, data),
   getReports: (params) => api.get('/admin/reports', { params }),
   resolveReport: (id) => api.put(`/admin/reports/${id}/resolve`),
