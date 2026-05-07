@@ -1,0 +1,1 @@
+import React from 'react'; const ConversationDetail = () => <div className='container' style={{padding:'2rem'}}><h1>ConversationDetail</h1><p>Página en desarrollo</p></div>; export default ConversationDetail;
