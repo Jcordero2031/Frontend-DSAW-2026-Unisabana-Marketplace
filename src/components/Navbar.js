@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { cartService, notificationService } from '../services/api';
 import './Navbar.css';
@@ -7,124 +7,186 @@ import './Navbar.css';
 const Navbar = () => {
   const { user, logout, isAuthenticated, isSeller } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [cartCount, setCartCount] = useState(0);
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const navRef = useRef(null);
 
   useEffect(() => {
     if (isAuthenticated) {
       loadCartCount();
-      loadNotificationCount();
+      loadNotifications();
     }
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    const handler = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, []);
+
   const loadCartCount = async () => {
     try {
-      const response = await cartService.get();
-      const itemCount = response.data.cart.items.reduce((sum, item) => sum + item.quantity, 0);
-      setCartCount(itemCount);
-    } catch (error) {
-      console.error('Error al cargar carrito:', error);
-    }
+      const res = await cartService.get();
+      const count = res.data.cart.items.reduce((s, i) => s + i.quantity, 0);
+      setCartCount(count);
+    } catch {}
   };
 
-  const loadNotificationCount = async () => {
+  const loadNotifications = async () => {
     try {
-      const response = await notificationService.getAll();
-      setNotificationCount(response.data.unreadCount);
-    } catch (error) {
-      console.error('Error al cargar notificaciones:', error);
+      const res = await notificationService.getAll();
+      setNotifCount(res.data.unreadCount || 0);
+      setNotifications(res.data.notifications || []);
+    } catch {}
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/listing?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
     }
   };
 
   const handleLogout = () => {
     logout();
+    setOpenDropdown(null);
     navigate('/login');
   };
 
+  const toggleDropdown = (name) => {
+    setOpenDropdown(prev => prev === name ? null : name);
+  };
+
+  const isActive = (path) => location.pathname === path;
+
+  const notifIcons = { order: '📦', message: '💬', review: '⭐', info: 'ℹ️' };
+
   return (
-    <nav className="navbar">
-      <div className="navbar-container">
-        <Link to="/" className="navbar-logo">
-          <span className="logo-text">Unisabana</span>
-          <span className="logo-accent">Marketplace</span>
+    <nav className="navbar" ref={navRef}>
+      <div className="nav-inner container">
+        <Link to="/" className="nav-logo">
+          <div className="nav-logo-icon">🎓</div>
+          <div className="nav-logo-text">
+            Sabana Market
+            <span>Universidad de La Sabana</span>
+          </div>
         </Link>
 
-        <div className="navbar-menu">
-          <Link to="/" className="navbar-link">
-            Inicio
-          </Link>
-          
+        <form className="nav-search" onSubmit={handleSearch}>
+          <input
+            type="text"
+            placeholder="Buscar productos, libros, servicios..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <button type="submit" className="nav-search-btn">🔍</button>
+        </form>
+
+        <div className="nav-links">
+          <Link to="/listing" className={`nav-link${isActive('/listing') ? ' active' : ''}`}>Explorar</Link>
+          <Link to="/listing?cat=libros" className="nav-link">Libros</Link>
+          <Link to="/listing?cat=tutorias" className="nav-link">Tutorías</Link>
+          {isAuthenticated && isSeller() && (
+            <Link to="/create-product" className={`nav-link${isActive('/create-product') ? ' active' : ''}`}>Publicar</Link>
+          )}
+        </div>
+
+        <div className="nav-actions">
           {isAuthenticated ? (
             <>
-              <Link to="/cart" className="navbar-link navbar-icon">
-                🛒
-                {cartCount > 0 && (
-                  <span className="badge-count">{cartCount}</span>
-                )}
-              </Link>
-
-              <Link to="/notifications" className="navbar-link navbar-icon">
-                🔔
-                {notificationCount > 0 && (
-                  <span className="badge-count">{notificationCount}</span>
-                )}
-              </Link>
-
-              <div className="navbar-user">
+              {/* Notifications */}
+              <div className="nav-dropdown-wrap">
                 <button
-                  className="navbar-user-btn"
-                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="nav-icon-btn"
+                  onClick={() => toggleDropdown('notif')}
+                  title="Notificaciones"
                 >
-                  <div className="user-avatar">
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="user-name">{user?.name}</span>
-                  <span className="dropdown-arrow">▼</span>
+                  🔔
+                  {notifCount > 0 && <span className="nav-badge">{notifCount}</span>}
                 </button>
+                {openDropdown === 'notif' && (
+                  <div className="nav-dropdown">
+                    <div className="dropdown-header">
+                      <h4>Notificaciones</h4>
+                      <Link to="/notifications" onClick={() => setOpenDropdown(null)}>Ver todas</Link>
+                    </div>
+                    <div className="dropdown-list">
+                      {notifications.length === 0 ? (
+                        <div className="dropdown-empty">Sin notificaciones</div>
+                      ) : (
+                        notifications.slice(0, 6).map(n => (
+                          <div key={n.id} className={`dropdown-item${n.read ? '' : ' unread'}`}>
+                            <span className="dropdown-item-icon">{notifIcons[n.type] || 'ℹ️'}</span>
+                            <div>
+                              <div className="dropdown-item-text">{n.message || n.text}</div>
+                              <div className="dropdown-item-time">{n.createdAt ? new Date(n.createdAt).toLocaleDateString('es-CO') : ''}</div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                {showUserMenu && (
-                  <div className="user-dropdown">
-                    <Link to="/profile" className="dropdown-item">
-                      Mi Perfil
-                    </Link>
-                    <Link to="/my-orders" className="dropdown-item">
-                      Mis Compras
-                    </Link>
+              {/* Cart */}
+              <div className="nav-dropdown-wrap">
+                <button
+                  className="nav-icon-btn"
+                  onClick={() => navigate('/cart')}
+                  title="Carrito"
+                >
+                  🛒
+                  {cartCount > 0 && <span className="nav-badge">{cartCount}</span>}
+                </button>
+              </div>
+
+              {/* User */}
+              <div className="nav-dropdown-wrap">
+                <div
+                  className="nav-avatar"
+                  onClick={() => toggleDropdown('user')}
+                  title={user?.name}
+                >
+                  {user?.name?.charAt(0).toUpperCase()}
+                </div>
+                {openDropdown === 'user' && (
+                  <div className="nav-dropdown user-dropdown">
+                    <div className="user-dropdown-info">
+                      <div className="user-dropdown-name">{user?.name}</div>
+                      <div className="user-dropdown-email">{user?.email}</div>
+                    </div>
+                    <Link to="/profile" className="user-dropdown-link" onClick={() => setOpenDropdown(null)}>👤 Mi Perfil</Link>
+                    <Link to="/my-orders" className="user-dropdown-link" onClick={() => setOpenDropdown(null)}>📦 Mis Compras</Link>
                     {isSeller() && (
                       <>
-                        <Link to="/my-products" className="dropdown-item">
-                          Mis Productos
-                        </Link>
-                        <Link to="/my-sales" className="dropdown-item">
-                          Mis Ventas
-                        </Link>
+                        <Link to="/my-products" className="user-dropdown-link" onClick={() => setOpenDropdown(null)}>🏪 Mis Productos</Link>
+                        <Link to="/my-sales" className="user-dropdown-link" onClick={() => setOpenDropdown(null)}>💰 Mis Ventas</Link>
                       </>
                     )}
-                    <Link to="/conversations" className="dropdown-item">
-                      Mensajes
-                    </Link>
-                    <hr className="dropdown-divider" />
+                    <Link to="/conversations" className="user-dropdown-link" onClick={() => setOpenDropdown(null)}>💬 Mensajes</Link>
                     {!isSeller() && (
-                      <Link to="/become-seller" className="dropdown-item">
-                        Vender en Marketplace
-                      </Link>
+                      <Link to="/become-seller" className="user-dropdown-link" onClick={() => setOpenDropdown(null)}>🚀 Vender aquí</Link>
                     )}
-                    <button onClick={handleLogout} className="dropdown-item logout">
-                      Cerrar Sesión
-                    </button>
+                    <div className="user-dropdown-divider" />
+                    <button className="user-dropdown-link danger" onClick={handleLogout}>🚪 Cerrar sesión</button>
                   </div>
                 )}
               </div>
             </>
           ) : (
             <>
-              <Link to="/login" className="btn btn-outline">
-                Iniciar Sesión
-              </Link>
-              <Link to="/register" className="btn btn-primary">
-                Registrarse
-              </Link>
+              <Link to="/login" className="nav-btn btn-outline-white">Iniciar sesión</Link>
+              <Link to="/register" className="nav-btn btn-gold">Registrarse</Link>
             </>
           )}
         </div>
