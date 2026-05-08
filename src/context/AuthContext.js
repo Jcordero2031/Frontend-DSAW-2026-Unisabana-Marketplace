@@ -44,8 +44,14 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      const response = await authService.register({ name, email, password });
-      return { success: true, data: response.data };
+      await authService.register({ name, email, password });
+      // Auto-login after successful registration
+      const loginResp = await authService.login({ email, password });
+      const { token, user } = loginResp.data;
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
+      return { success: true };
     } catch (error) {
       return { success: false, error: error.response?.data?.error || 'Error al registrarse' };
     }
