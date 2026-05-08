@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Configuración base de Axios
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3000/api',
+  baseURL: process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? 'https://market-place-dsaw-26-01.vercel.app/api' : 'http://localhost:3000/api'),
   headers: {
     'Content-Type': 'application/json',
   },
