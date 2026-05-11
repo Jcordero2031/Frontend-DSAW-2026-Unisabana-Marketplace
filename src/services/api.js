@@ -104,14 +104,19 @@ export const reportService = {
 
 // Servicios de admin
 export const adminService = {
-  getDashboard: () => api.get('/admin/dashboard'),
-  getUsers: () => api.get('/admin/users'),
-  getProducts: () => api.get('/admin/products'),
-  getOrders: () => api.get('/admin/orders'),
-  deleteProduct: (id) => api.delete(`/admin/products/${id}`),
-  updateUserStatus: (id, data) => api.put(`/admin/users/${id}/status`, data),
-  getReports: (params) => api.get('/admin/reports', { params }),
-  resolveReport: (id) => api.put(`/admin/reports/${id}/resolve`),
+  getDashboard:      () => api.get('/admin/dashboard'),
+  getUsers:          (search) => api.get('/admin/users', { params: search ? { search } : {} }),
+  createUser:        (data) => api.post('/admin/users', data),
+  deleteUser:        (id) => api.delete(`/admin/users/${id}`),
+  suspendUser:       (id, days) => api.patch(`/admin/users/${id}/suspend`, { days }),
+  updateUserStatus:  (id, data) => api.put(`/admin/users/${id}/status`, data),
+  getProducts:       (search) => api.get('/admin/products', { params: search ? { search } : {} }),
+  deleteProduct:     (id) => api.delete(`/admin/products/${id}`),
+  hideProduct:       (id) => api.patch(`/admin/products/${id}/hide`),
+  getOrders:         () => api.get('/admin/orders'),
+  getReports:        (params) => api.get('/admin/reports', { params }),
+  resolveReport:     (id) => api.put(`/admin/reports/${id}/resolve`),
+  adminLogin:        (data) => api.post('/auth/admin-login', data),
 };
 
 export default api;

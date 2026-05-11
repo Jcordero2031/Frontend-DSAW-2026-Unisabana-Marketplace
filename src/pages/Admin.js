@@ -1,277 +1,260 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { adminService } from '../services/api';
-import './Admin.css';
 
-const TABS = ['Productos', 'Usuarios', 'Reportes'];
+// ── Panel de administración — HTML plano sin estilos (Prompt 2C) ──────────────
 
-const formatDate = (iso) =>
-  iso ? new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+const Admin = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-const formatPrice = (p) =>
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(p);
+  const [tab, setTab] = useState('users');
 
-/* ─── Products tab ───────────────────────────────────── */
-const ProductsTab = () => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
-
+  // Redirigir si no es admin
   useEffect(() => {
-    adminService.getProducts()
-      .then(res => setProducts(res.data.products || res.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin';
+    if (!isAdmin) navigate('/');
+  }, [user, navigate]);
+
+  const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin';
+  if (!isAdmin) return null;
+
+  return (
+    <div>
+      <h1>Panel de Administración</h1>
+      <nav>
+        <button onClick={() => setTab('users')}>Usuarios</button>{' '}
+        <button onClick={() => setTab('products')}>Productos</button>{' '}
+        <button onClick={() => setTab('reports')}>Reportes</button>
+      </nav>
+      <hr />
+      {tab === 'users'    && <UsersPanel />}
+      {tab === 'products' && <ProductsPanel />}
+      {tab === 'reports'  && <ReportsPanel />}
+    </div>
+  );
+};
+
+// ── Usuarios ──────────────────────────────────────────────────────────────────
+const UsersPanel = () => {
+  const [users, setUsers]   = useState([]);
+  const [search, setSearch] = useState('');
+  const [days, setDays]     = useState({});
+  const [msg, setMsg]       = useState('');
+
+  const load = (q = '') => {
+    adminService.getUsers(q)
+      .then(res => setUsers(res.data.users || []))
+      .catch(() => setMsg('Error al cargar usuarios'));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    load(search);
+  };
+
+  const handleSuspend = async (userId) => {
+    const d = parseInt(days[userId]);
+    if (!d || d < 1) return alert('Ingresa un número de días válido');
+    try {
+      await adminService.suspendUser(userId, d);
+      setMsg(`Usuario suspendido por ${d} día(s).`);
+      load(search);
+    } catch (err) {
+      setMsg(err.response?.data?.error || 'Error al suspender');
+    }
+  };
+
+  const handleRehabilitate = async (userId) => {
+    try {
+      await adminService.updateUserStatus(userId, { status: 'active' });
+      setMsg('Usuario rehabilitado.');
+      load(search);
+    } catch (err) {
+      setMsg(err.response?.data?.error || 'Error al rehabilitar');
+    }
+  };
+
+  const handleDelete = async (userId) => {
+    if (!window.confirm('¿Eliminar este usuario permanentemente?')) return;
+    try {
+      await adminService.deleteUser(userId);
+      setMsg('Usuario eliminado.');
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (err) {
+      setMsg(err.response?.data?.error || 'Error al eliminar');
+    }
+  };
+
+  return (
+    <div>
+      <h2>Usuarios</h2>
+      {msg && <p><strong>{msg}</strong></p>}
+      <form onSubmit={handleSearch}>
+        <input
+          type="text"
+          placeholder="Buscar por nombre o correo..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <button type="submit">Buscar</button>
+      </form>
+      <ul>
+        {users.map(u => (
+          <li key={u.id}>
+            <strong>{u.name}</strong> — {u.email} — roles: {(u.roles || []).join(', ')} — estado: {u.status || 'active'}
+            {u.suspendedUntil && <span> (suspendido hasta {new Date(u.suspendedUntil).toLocaleDateString('es-CO')})</span>}
+            <br />
+            {!u.roles?.includes('admin') && (
+              <>
+                {u.status === 'suspended'
+                  ? <button onClick={() => handleRehabilitate(u.id)}>Rehabilitar</button>
+                  : (
+                    <>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Días"
+                        value={days[u.id] || ''}
+                        onChange={e => setDays(prev => ({ ...prev, [u.id]: e.target.value }))}
+                        style={{ width: 60 }}
+                      />
+                      <button onClick={() => handleSuspend(u.id)}>Suspender</button>
+                    </>
+                  )
+                }
+                {' '}
+                <button onClick={() => handleDelete(u.id)}>Eliminar</button>
+              </>
+            )}
+          </li>
+        ))}
+        {users.length === 0 && <li>Sin resultados.</li>}
+      </ul>
+    </div>
+  );
+};
+
+// ── Productos ─────────────────────────────────────────────────────────────────
+const ProductsPanel = () => {
+  const [products, setProducts] = useState([]);
+  const [search, setSearch]     = useState('');
+  const [msg, setMsg]           = useState('');
+
+  const load = (q = '') => {
+    adminService.getProducts(q)
+      .then(res => setProducts(res.data.products || []))
+      .catch(() => setMsg('Error al cargar productos'));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    load(search);
+  };
 
   const handleDelete = async (productId) => {
-    if (!window.confirm('¿Eliminar este producto permanentemente?')) return;
-    setDeletingId(productId);
+    if (!window.confirm('¿Eliminar este producto?')) return;
     try {
       await adminService.deleteProduct(productId);
+      setMsg('Producto eliminado.');
       setProducts(prev => prev.filter(p => p.id !== productId));
     } catch (err) {
-      alert(err.response?.data?.error || 'Error al eliminar');
+      setMsg(err.response?.data?.error || 'Error al eliminar');
     }
-    setDeletingId(null);
   };
 
-  if (loading) return <div className="flex-center" style={{ minHeight: 200 }}><div className="spinner" /></div>;
+  const handleHide = async (productId) => {
+    try {
+      const res = await adminService.hideProduct(productId);
+      setMsg(res.data.message);
+      load(search);
+    } catch (err) {
+      setMsg(err.response?.data?.error || 'Error al ocultar/mostrar');
+    }
+  };
 
   return (
-    <div className="admin-table-wrap">
-      <p className="admin-count">{products.length} producto{products.length !== 1 ? 's' : ''}</p>
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th>Producto</th>
-            <th>Precio</th>
-            <th>Stock</th>
-            <th>Vendedor</th>
-            <th>Estado</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.map(p => (
-            <tr key={p.id} className={p.active === false ? 'row-inactive' : ''}>
-              <td>
-                <div className="admin-product-name">{p.name || p.title}</div>
-                <div className="admin-product-cat">{p.category}</div>
-              </td>
-              <td>{formatPrice(p.price)}</td>
-              <td>{p.stock}</td>
-              <td>{p.seller?.name || p.sellerName || '-'}</td>
-              <td>
-                <span className={`badge ${p.active === false ? 'badge-usado' : 'badge-nuevo'}`}>
-                  {p.active === false ? 'Inactivo' : 'Activo'}
-                </span>
-              </td>
-              <td>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => handleDelete(p.id)}
-                  disabled={deletingId === p.id}
-                >
-                  {deletingId === p.id ? '...' : '🗑️ Eliminar'}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <h2>Productos</h2>
+      {msg && <p><strong>{msg}</strong></p>}
+      <form onSubmit={handleSearch}>
+        <input
+          type="text"
+          placeholder="Buscar producto..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <button type="submit">Buscar</button>
+      </form>
+      <ul>
+        {products.map(p => (
+          <li key={p.id}>
+            <strong>{p.name}</strong> — ${p.price} — stock: {p.stock}
+            {' '}— {p.isActive ? 'activo' : 'inactivo'}{p.hidden ? ' — OCULTO' : ''}
+            <br />
+            <button onClick={() => handleDelete(p.id)}>Eliminar</button>
+            {' '}
+            <button onClick={() => handleHide(p.id)}>
+              {p.hidden ? 'Mostrar' : 'Ocultar'}
+            </button>
+          </li>
+        ))}
+        {products.length === 0 && <li>Sin resultados.</li>}
+      </ul>
     </div>
   );
 };
 
-/* ─── Users tab ──────────────────────────────────────── */
-const UsersTab = () => {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState(null);
+// ── Reportes ──────────────────────────────────────────────────────────────────
+const ReportsPanel = () => {
+  const [reports, setReports] = useState([]);
+  const [msg, setMsg]         = useState('');
 
   useEffect(() => {
-    adminService.getUsers()
-      .then(res => setUsers(res.data.users || res.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    adminService.getReports()
+      .then(res => setReports(res.data.reports || []))
+      .catch(() => setMsg('Error al cargar reportes'));
   }, []);
 
-  const toggleStatus = async (userId, currentStatus) => {
-    const newStatus = currentStatus === 'suspendido' ? 'activo' : 'suspendido';
-    if (!window.confirm(`¿${newStatus === 'suspendido' ? 'Suspender' : 'Rehabilitar'} este usuario?`)) return;
-    setUpdatingId(userId);
-    try {
-      await adminService.updateUserStatus(userId, { status: newStatus });
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
-    } catch (err) {
-      alert(err.response?.data?.error || 'Error al actualizar usuario');
-    }
-    setUpdatingId(null);
-  };
-
-  if (loading) return <div className="flex-center" style={{ minHeight: 200 }}><div className="spinner" /></div>;
-
-  return (
-    <div className="admin-table-wrap">
-      <p className="admin-count">{users.length} usuario{users.length !== 1 ? 's' : ''}</p>
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th>Usuario</th>
-            <th>Correo</th>
-            <th>Rol</th>
-            <th>Registro</th>
-            <th>Estado</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map(u => (
-            <tr key={u.id}>
-              <td className="admin-user-name">{u.name}</td>
-              <td>{u.email}</td>
-              <td><span className={`badge ${u.role === 'admin' ? 'badge-popular' : u.role === 'seller' ? 'badge-nuevo' : 'badge-usado'}`}>{u.role}</span></td>
-              <td>{formatDate(u.createdAt)}</td>
-              <td>
-                <span className={`badge ${u.status === 'suspendido' ? 'badge-usado' : 'badge-nuevo'}`}>
-                  {u.status || 'activo'}
-                </span>
-              </td>
-              <td>
-                <button
-                  className={`btn btn-sm ${u.status === 'suspendido' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => toggleStatus(u.id, u.status || 'activo')}
-                  disabled={updatingId === u.id || u.role === 'admin'}
-                  title={u.role === 'admin' ? 'No se puede suspender un admin' : ''}
-                >
-                  {updatingId === u.id ? '...' : u.status === 'suspendido' ? '✓ Rehabilitar' : '⛔ Suspender'}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
-/* ─── Reports tab ────────────────────────────────────── */
-const ReportsTab = () => {
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('pendiente');
-  const [resolvingId, setResolvingId] = useState(null);
-
-  const loadReports = useCallback(() => {
-    setLoading(true);
-    adminService.getReports({ status: filter })
-      .then(res => setReports(res.data.reports || res.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [filter]);
-
-  useEffect(() => { loadReports(); }, [loadReports]);
-
-  const resolve = async (reportId) => {
-    setResolvingId(reportId);
+  const handleResolve = async (reportId) => {
     try {
       await adminService.resolveReport(reportId);
-      setReports(prev => prev.filter(r => r.reportId !== reportId && r.id !== reportId));
+      setMsg('Reporte resuelto.');
+      setReports(prev => prev.map(r =>
+        r.id === reportId ? { ...r, status: 'resolved' } : r
+      ));
     } catch (err) {
-      alert(err.response?.data?.error || 'Error al resolver');
+      setMsg(err.response?.data?.error || 'Error al resolver');
     }
-    setResolvingId(null);
   };
 
   return (
-    <div className="admin-table-wrap">
-      <div className="admin-filter-row">
-        <button className={`btn btn-sm ${filter === 'pendiente' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter('pendiente')}>Pendientes</button>
-        <button className={`btn btn-sm ${filter === 'resuelto' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter('resuelto')}>Resueltos</button>
-      </div>
-
-      {loading ? (
-        <div className="flex-center" style={{ minHeight: 200 }}><div className="spinner" /></div>
-      ) : reports.length === 0 ? (
-        <p className="admin-empty">No hay reportes {filter === 'pendiente' ? 'pendientes' : 'resueltos'}.</p>
-      ) : (
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Motivo</th>
-              <th>Reportado por</th>
-              <th>Fecha</th>
-              <th>Estado</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reports.map(r => (
-              <tr key={r.reportId || r.id}>
-                <td>
-                  <span className="badge badge-popular">
-                    {r.targetType === 'product' ? '📦 Producto' : '👤 Usuario'}
-                  </span>
-                </td>
-                <td className="admin-report-reason">{r.reason}</td>
-                <td>{r.reporterName || r.reporter?.name || '-'}</td>
-                <td>{formatDate(r.createdAt)}</td>
-                <td>
-                  <span className={`badge ${r.status === 'resuelto' ? 'badge-nuevo' : 'badge-usado'}`}>{r.status}</span>
-                </td>
-                <td>
-                  {r.status !== 'resuelto' && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => resolve(r.reportId || r.id)}
-                      disabled={resolvingId === (r.reportId || r.id)}
-                    >
-                      {resolvingId === (r.reportId || r.id) ? '...' : '✓ Resolver'}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-};
-
-/* ─── Main Admin page ────────────────────────────────── */
-const Admin = () => {
-  const [activeTab, setActiveTab] = useState(0);
-
-  return (
-    <div className="admin-page">
-      <div className="container">
-        <div className="admin-header">
-          <h1 className="admin-title">Panel de Administración</h1>
-          <span className="admin-badge">Admin</span>
-        </div>
-
-        <div className="admin-tabs">
-          {TABS.map((tab, i) => (
-            <button
-              key={tab}
-              className={`admin-tab ${activeTab === i ? 'active' : ''}`}
-              onClick={() => setActiveTab(i)}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        <div className="admin-content">
-          {activeTab === 0 && <ProductsTab />}
-          {activeTab === 1 && <UsersTab />}
-          {activeTab === 2 && <ReportsTab />}
-        </div>
-      </div>
+    <div>
+      <h2>Reportes</h2>
+      {msg && <p><strong>{msg}</strong></p>}
+      <ul>
+        {reports.map(r => (
+          <li key={r.id}>
+            <strong>{r.targetType === 'product' ? 'Producto' : 'Usuario'}</strong>
+            {' '}— Motivo: {r.reason} — Estado: {r.status}
+            {' '}— Fecha: {new Date(r.createdAt).toLocaleDateString('es-CO')}
+            <br />
+            {r.status !== 'resolved' && (
+              <button onClick={() => handleResolve(r.id)}>Resolver</button>
+            )}
+          </li>
+        ))}
+        {reports.length === 0 && <li>Sin reportes.</li>}
+      </ul>
     </div>
   );
 };
 
 export default Admin;
+
+// ✅ Sección 2C — completada
