@@ -44,6 +44,7 @@ export const authService = {
   updateProfile: (data) => api.put('/auth/profile', data),
   changePassword: (data) => api.put('/auth/change-password', data),
   becomeSeller: () => api.post('/auth/become-seller'),
+  leaveSeller:  () => api.post('/auth/leave-seller'),
 };
 
 // Servicios de productos

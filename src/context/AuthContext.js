@@ -75,6 +75,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const leaveSeller = async () => {
+    try {
+      const response = await authService.leaveSeller();
+      const updatedUser = response.data.user;
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || 'Error al dejar de ser vendedor' };
+    }
+  };
+
   const updateLocalUser = (updates) => {
     const updated = { ...user, ...updates };
     localStorage.setItem('user', JSON.stringify(updated));
@@ -91,6 +103,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     becomeSeller,
+    leaveSeller,
     updateLocalUser,
     isSeller,
     isAdmin,

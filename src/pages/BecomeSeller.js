@@ -11,11 +11,29 @@ const BENEFITS = [
 ];
 
 const BecomeSeller = () => {
-  const { becomeSeller, isSeller, logout } = useAuth();
+  const { becomeSeller, leaveSeller, isSeller, logout } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activated, setActivated] = useState(false);
+  const [deactivated, setDeactivated] = useState(false);
+
+  const handleLeave = async () => {
+    if (!window.confirm('¿Seguro que quieres dejar de ser vendedor? Perderás acceso a publicar productos.')) return;
+    setLoading(true);
+    setError('');
+    const result = await leaveSeller();
+    if (result.success) {
+      setDeactivated(true);
+      setTimeout(() => {
+        logout();
+        navigate('/login');
+      }, 4000);
+    } else {
+      setError(result.error || 'No se pudo quitar el rol de vendedor');
+    }
+    setLoading(false);
+  };
 
   if (isSeller() && !activated) {
     return (
@@ -25,6 +43,12 @@ const BecomeSeller = () => {
             <div className="become-already-icon">🏪</div>
             <h2>¡Ya eres vendedor!</h2>
             <p>Tu cuenta ya tiene permisos de vendedor activos.</p>
+            {error && <div className="alert alert-error">{error}</div>}
+            {deactivated && (
+              <div className="alert alert-success">
+                ✅ Has dejado de ser vendedor. Debes iniciar sesión de nuevo para aplicar los cambios. Redirigiendo...
+              </div>
+            )}
             <div className="become-already-actions">
               <button className="btn btn-primary" onClick={() => navigate('/create-product')}>
                 + Publicar producto
@@ -33,6 +57,21 @@ const BecomeSeller = () => {
                 Ver mis productos
               </button>
             </div>
+            {!deactivated && (
+              <div style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '1.5rem' }}>
+                <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+                  ¿Ya no quieres vender en Sabana Market?
+                </p>
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleLeave}
+                  disabled={loading}
+                  style={{ color: '#c0392b', borderColor: '#c0392b' }}
+                >
+                  {loading ? 'Procesando...' : '🚪 Dejar de ser vendedor'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
