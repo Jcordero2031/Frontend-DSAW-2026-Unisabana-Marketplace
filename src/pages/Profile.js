@@ -6,7 +6,7 @@ import { validators, validateForm } from '../utils/validators';
 import './Profile.css';
 
 const Profile = () => {
-  const { user, logout, isSeller } = useAuth();
+  const { user, logout, isSeller, leaveSeller } = useAuth();
   const navigate = useNavigate();
 
   const [tab, setTab] = useState('info');
@@ -14,6 +14,8 @@ const Profile = () => {
   const [pwErrors, setPwErrors] = useState({});
   const [pwLoading, setPwLoading] = useState(false);
   const [pwSuccess, setPwSuccess] = useState(false);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [leaveMsg, setLeaveMsg] = useState('');
 
   const setPw = (field) => (e) => {
     setPwForm(f => ({ ...f, [field]: e.target.value }));
@@ -45,6 +47,19 @@ const Profile = () => {
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const handleLeaveSeller = async () => {
+    if (!window.confirm('¿Seguro que quieres dejar de ser vendedor? Perderás acceso a publicar productos.')) return;
+    setLeaveLoading(true);
+    const result = await leaveSeller();
+    if (result.success) {
+      setLeaveMsg('✅ Has dejado de ser vendedor. Cerrando sesión para aplicar los cambios...');
+      setTimeout(() => { logout(); navigate('/login'); }, 4000);
+    } else {
+      setLeaveMsg(result.error || 'No se pudo quitar el rol de vendedor');
+    }
+    setLeaveLoading(false);
   };
 
   const roleLabel = () => {
@@ -113,7 +128,23 @@ const Profile = () => {
                 </div>
                 <div className="profile-info-item">
                   <label>Rol en el marketplace</label>
-                  <div className="profile-info-value">{roleIcon()} {roleLabel()}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div className="profile-info-value">{roleIcon()} {roleLabel()}</div>
+                    {isSeller() && !leaveMsg && (
+                      <button
+                        onClick={handleLeaveSeller}
+                        disabled={leaveLoading}
+                        style={{ background: 'none', border: '1px solid #c0392b', color: '#c0392b', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}
+                      >
+                        {leaveLoading ? 'Procesando...' : '🚪 Dejar de ser vendedor'}
+                      </button>
+                    )}
+                  </div>
+                  {leaveMsg && (
+                    <div className="alert alert-success" style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
+                      {leaveMsg}
+                    </div>
+                  )}
                 </div>
                 {user?.career && (
                   <div className="profile-info-item">
