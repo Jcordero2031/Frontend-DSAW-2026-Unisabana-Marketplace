@@ -11,12 +11,13 @@ const BENEFITS = [
 ];
 
 const BecomeSeller = () => {
-  const { becomeSeller, isSeller } = useAuth();
+  const { becomeSeller, isSeller, logout } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activated, setActivated] = useState(false);
 
-  if (isSeller()) {
+  if (isSeller() && !activated) {
     return (
       <div className="become-page">
         <div className="container become-wrap">
@@ -43,7 +44,12 @@ const BecomeSeller = () => {
     setError('');
     const result = await becomeSeller();
     if (result.success) {
-      navigate('/create-product');
+      setActivated(true);
+      // El token JWT no se actualiza automáticamente — hay que volver a iniciar sesión
+      setTimeout(() => {
+        logout();
+        navigate('/login');
+      }, 4000);
     } else {
       setError(result.error || 'No se pudo activar la cuenta de vendedor');
     }
@@ -72,6 +78,11 @@ const BecomeSeller = () => {
 
         <div className="become-cta">
           {error && <div className="alert alert-error">{error}</div>}
+          {activated && (
+            <div className="alert alert-success">
+              ✅ ¡Cuenta de vendedor activada! Por seguridad debes iniciar sesión de nuevo para usar tus nuevos permisos. Redirigiendo al login en unos segundos...
+            </div>
+          )}
           <div className="become-terms">
             <p>Al activar tu cuenta de vendedor aceptas el reglamento de Sabana Market y te comprometes a describir tus productos honestamente y cumplir con las transacciones acordadas.</p>
           </div>
