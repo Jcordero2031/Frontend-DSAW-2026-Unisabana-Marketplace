@@ -60,17 +60,17 @@ const Conversations = () => {
                 onClick={() => navigate(`/conversations/${conv.conversationId || conv.id}`)}
               >
                 <div className="conv-avatar">
-                  {(conv.otherUser || conv.otherUserName || 'U').charAt(0).toUpperCase()}
+                  {(conv.otherUser?.name || conv.otherUserName || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div className="conv-info">
                   <div className="conv-item-header">
-                    <span className="conv-username">{conv.otherUser || conv.otherUserName || 'Usuario'}</span>
+                    <span className="conv-username">{conv.otherUser?.name || conv.otherUserName || 'Usuario'}</span>
                     <span className="conv-time">{conv.lastMessageAt ? timeAgo(conv.lastMessageAt) : ''}</span>
                   </div>
-                  {conv.productTitle && (
-                    <div className="conv-product">📦 {conv.productTitle}</div>
+                  {(conv.product?.name || conv.productTitle) && (
+                    <div className="conv-product">📦 {conv.product?.name || conv.productTitle}</div>
                   )}
-                  <div className="conv-last-msg">{conv.lastMessage || 'Sin mensajes aún'}</div>
+                  <div className="conv-last-msg">{conv.lastMessage?.content || 'Sin mensajes aún'}</div>
                 </div>
                 <div className="conv-arrow">›</div>
               </div>
