@@ -75,7 +75,7 @@ const MyOrders = () => {
 
   useEffect(() => {
     orderService.getMyOrders()
-      .then(res => setOrders(res.data.orders || res.data || []))
+      .then(res => setOrders(res.data.purchases || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
