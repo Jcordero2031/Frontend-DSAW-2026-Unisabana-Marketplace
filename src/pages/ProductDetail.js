@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { productService, cartService, reviewService, reportService, conversationService } from '../services/api';
+import { productService, cartService, reviewService, reportService, conversationService, orderService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './ProductDetail.css';
 
@@ -163,14 +163,15 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
 
-  const [product, setProduct]       = useState(null);
-  const [reviews, setReviews]       = useState([]);
-  const [reviewsAvg, setReviewsAvg] = useState(null);   // promedio de reseñas del producto
-  const [loading, setLoading]       = useState(true);
-  const [quantity, setQuantity]     = useState(1);
-  const [addedToCart, setAddedToCart] = useState(false);
-  const [showReport, setShowReport] = useState(false);
-  const [contacting, setContacting] = useState(false);
+  const [product, setProduct]             = useState(null);
+  const [reviews, setReviews]             = useState([]);
+  const [reviewsAvg, setReviewsAvg]       = useState(null);
+  const [hasCompletedPurchase, setHasCompletedPurchase] = useState(false);
+  const [loading, setLoading]             = useState(true);
+  const [quantity, setQuantity]           = useState(1);
+  const [addedToCart, setAddedToCart]     = useState(false);
+  const [showReport, setShowReport]       = useState(false);
+  const [contacting, setContacting]       = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -184,9 +185,26 @@ const ProductDetail = () => {
         productService.getById(id),
         reviewService.getByProduct(id),
       ]);
-      setProduct(prodRes.data.product);
+      const p = prodRes.data.product;
+      setProduct(p);
       setReviews(revRes.data.reviews || []);
-      setReviewsAvg(revRes.data.average);   // puede ser null
+      setReviewsAvg(revRes.data.average);
+
+      // Verificar si el usuario tiene una compra completada de este producto
+      // (requerido para dejar reseña — ambas partes deben haber confirmado)
+      if (isAuthenticated && p && user?.id !== p.sellerId) {
+        try {
+          const ordersRes = await orderService.getMyOrders();
+          const purchases = ordersRes.data.purchases || [];
+          const completed = purchases.some(order =>
+            order.status === 'completed' &&
+            (order.items || []).some(item => item.productId === id)
+          );
+          setHasCompletedPurchase(completed);
+        } catch {
+          setHasCompletedPurchase(false);
+        }
+      }
     } catch {
       navigate('/');
     } finally {
@@ -230,8 +248,9 @@ const ProductDetail = () => {
   // ¿Ya dejó reseña el usuario actual?
   const alreadyReviewed = isAuthenticated && reviews.some(r => r.buyerId === user?.id);
 
-  // ¿Puede dejar reseña? (autenticado, no es el dueño, no ha reseñado aún)
-  const canReview = isAuthenticated && !isOwner && !alreadyReviewed;
+  // Puede reseñar solo si: autenticado + no es dueño + no reseñó + tiene compra completed
+  // (requiere confirmación de ambas partes: vendedor marcó entregada + comprador confirmó recepción)
+  const canReview = isAuthenticated && !isOwner && !alreadyReviewed && hasCompletedPurchase;
 
   return (
     <div className="container pd-page">
@@ -426,13 +445,22 @@ const ProductDetail = () => {
           </div>
         )}
 
+        {/* Comprador autenticado pero sin compra completada */}
+        {isAuthenticated && !isOwner && !alreadyReviewed && !hasCompletedPurchase && (
+          <div className="pd-review-cta">
+            <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+              🔒 Para dejar una reseña necesitas haber comprado este producto y que
+              tanto tú como el vendedor hayan confirmado la entrega
+              (estado <strong>Completado</strong> en{' '}
+              <span className="pd-link" onClick={() => navigate('/my-orders')}>Mis Compras</span>).
+            </p>
+          </div>
+        )}
+
         {canReview && (
           <ReviewForm
             productId={id}
-            onSubmitted={() => {
-              // Recargar reseñas y producto tras publicar
-              loadAll();
-            }}
+            onSubmitted={loadAll}
           />
         )}
       </div>
