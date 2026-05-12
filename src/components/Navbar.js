@@ -63,7 +63,14 @@ const Navbar = () => {
   };
 
   const toggleDropdown = (name) => {
-    setOpenDropdown(prev => prev === name ? null : name);
+    setOpenDropdown(prev => {
+      const opening = prev !== name;
+      // Recargar notificaciones cada vez que se abre la campanita
+      if (opening && name === 'notif' && isAuthenticated) {
+        loadNotifications();
+      }
+      return opening ? name : null;
+    });
   };
 
   const isActive = (path) => location.pathname === path;
@@ -120,11 +127,11 @@ const Navbar = () => {
                       <Link to="/notifications" onClick={() => setOpenDropdown(null)}>Ver todas</Link>
                     </div>
                     <div className="dropdown-list">
-                      {notifications.length === 0 ? (
-                        <div className="dropdown-empty">Sin notificaciones</div>
+                      {notifications.filter(n => !n.read).length === 0 ? (
+                        <div className="dropdown-empty">No tienes notificaciones sin leer</div>
                       ) : (
-                        notifications.slice(0, 6).map(n => (
-                          <div key={n.id} className={`dropdown-item${n.read ? '' : ' unread'}`}>
+                        notifications.filter(n => !n.read).slice(0, 6).map(n => (
+                          <div key={n.id} className="dropdown-item unread">
                             <span className="dropdown-item-icon">{notifIcons[n.type] || 'ℹ️'}</span>
                             <div>
                               <div className="dropdown-item-text">{n.message || n.text}</div>
