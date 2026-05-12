@@ -52,7 +52,8 @@ const SellerRoute = ({ children }) => {
 const AdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex-center" style={{ minHeight: '100vh' }}><div className="spinner" /></div>;
-  return user?.role === 'admin' ? children : <Navigate to="/" />;
+  const isAdmin = user?.roles?.includes('admin') || user?.role === 'admin';
+  return isAdmin ? children : <Navigate to="/" />;
 };
 
 function AppRoutes() {
