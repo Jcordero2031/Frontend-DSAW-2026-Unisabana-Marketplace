@@ -72,6 +72,7 @@ export const orderService = {
   getMyOrders: () => api.get('/orders/my-orders'),
   getById: (id) => api.get(`/orders/${id}`),
   deliver: (id) => api.patch(`/orders/${id}/deliver`),
+  confirmReceipt: (id) => api.patch(`/orders/${id}/confirm-receipt`),
   cancel: (id) => api.patch(`/orders/${id}/cancel`),
 };
 
@@ -88,6 +89,9 @@ export const conversationService = {
 export const reviewService = {
   create: (data) => api.post('/reviews', data),
   getBySeller: (sellerId, params) => api.get('/reviews', { params: { sellerId, ...params } }),
+  // Reseñas por producto (Prompt 3)
+  getByProduct: (productId) => api.get(`/products/${productId}/reviews`),
+  createForProduct: (productId, data) => api.post(`/products/${productId}/reviews`, data),
 };
 
 // Servicios de notificaciones

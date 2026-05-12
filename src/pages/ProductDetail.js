@@ -7,17 +7,43 @@ import './ProductDetail.css';
 const formatPrice = (price) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(price);
 
+const formatDate = (iso) =>
+  new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+
+// Estrellas estáticas
 const Stars = ({ rating }) => {
   const full = Math.round(rating || 0);
   return (
     <span className="pd-stars">
       {[1, 2, 3, 4, 5].map(i => (
-        <span key={i} style={{ color: i <= full ? '#C9A84C' : '#ddd' }}>★</span>
+        <span key={i} style={{ color: i <= full ? '#C9A84C' : '#ddd', fontSize: 18 }}>★</span>
       ))}
     </span>
   );
 };
 
+// Selector interactivo de estrellas
+const StarPicker = ({ value, onChange }) => (
+  <span className="pd-star-picker">
+    {[1, 2, 3, 4, 5].map(i => (
+      <span
+        key={i}
+        onClick={() => onChange(i)}
+        style={{
+          cursor: 'pointer',
+          color: i <= value ? '#C9A84C' : '#ddd',
+          fontSize: 28,
+          padding: '0 2px',
+          transition: 'color 0.15s',
+        }}
+      >
+        ★
+      </span>
+    ))}
+  </span>
+);
+
+// Modal de reporte
 const ReportModal = ({ target, targetId, onClose }) => {
   const [reason, setReason] = useState('');
   const [sending, setSending] = useState(false);
@@ -72,40 +98,95 @@ const ReportModal = ({ target, targetId, onClose }) => {
   );
 };
 
+// Formulario para dejar reseña
+const ReviewForm = ({ productId, onSubmitted }) => {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (rating === 0) { setError('Selecciona una calificación de 1 a 5 estrellas.'); return; }
+    setSubmitting(true);
+    try {
+      await reviewService.createForProduct(productId, { rating, comment: comment.trim() });
+      onSubmitted();
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo publicar la reseña.');
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <form className="pd-review-form" onSubmit={handleSubmit}>
+      <h3 className="pd-review-form-title">Deja tu reseña</h3>
+
+      <div className="pd-review-form-stars">
+        <label>Calificación</label>
+        <StarPicker value={rating} onChange={setRating} />
+        {rating > 0 && (
+          <span style={{ marginLeft: 8, color: '#C9A84C', fontWeight: 600 }}>{rating}/5</span>
+        )}
+      </div>
+
+      <div className="form-group">
+        <label className="form-label">Comentario (opcional)</label>
+        <textarea
+          className="input"
+          placeholder="Cuéntanos tu experiencia con este producto..."
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          rows={3}
+          maxLength={500}
+        />
+      </div>
+
+      {error && <div className="alert alert-error" style={{ marginBottom: 8 }}>{error}</div>}
+
+      <button
+        type="submit"
+        className="btn btn-primary"
+        disabled={submitting || rating === 0}
+      >
+        {submitting ? 'Publicando...' : '⭐ Publicar reseña'}
+      </button>
+    </form>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const [product, setProduct] = useState(null);
-  const [reviews, setReviews] = useState([]);
-  const [reviewsMeta, setReviewsMeta] = useState({ averageRating: 0, totalReviews: 0 });
-  const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1);
+
+  const [product, setProduct]       = useState(null);
+  const [reviews, setReviews]       = useState([]);
+  const [reviewsAvg, setReviewsAvg] = useState(null);   // promedio de reseñas del producto
+  const [loading, setLoading]       = useState(true);
+  const [quantity, setQuantity]     = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [contacting, setContacting] = useState(false);
 
   useEffect(() => {
-    loadProduct();
+    loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const loadProduct = async () => {
+  const loadAll = async () => {
+    setLoading(true);
     try {
-      const res = await productService.getById(id);
-      const p = res.data.product;
-      setProduct(p);
-      if (p.sellerId) {
-        reviewService.getBySeller(p.sellerId)
-          .then(r => {
-            setReviews(r.data.reviews || []);
-            setReviewsMeta({
-              averageRating: r.data.averageRating || 0,
-              totalReviews: r.data.totalReviews || 0,
-            });
-          })
-          .catch(() => {});
-      }
+      const [prodRes, revRes] = await Promise.all([
+        productService.getById(id),
+        reviewService.getByProduct(id),
+      ]);
+      setProduct(prodRes.data.product);
+      setReviews(revRes.data.reviews || []);
+      setReviewsAvg(revRes.data.average);   // puede ser null
     } catch {
       navigate('/');
     } finally {
@@ -143,16 +224,25 @@ const ProductDetail = () => {
   const isOwner = user?.id === product.sellerId;
   const inStock = product.stock > 0;
 
+  // El vendedor tiene rating público solo si el backend retorna un número (≥20 reseñas)
+  const sellerRating = product.seller?.sellerRating ?? null;
+
+  // ¿Ya dejó reseña el usuario actual?
+  const alreadyReviewed = isAuthenticated && reviews.some(r => r.buyerId === user?.id);
+
+  // ¿Puede dejar reseña? (autenticado, no es el dueño, no ha reseñado aún)
+  const canReview = isAuthenticated && !isOwner && !alreadyReviewed;
+
   return (
     <div className="container pd-page">
       <div className="pd-breadcrumb">
         <span onClick={() => navigate('/')} className="pd-link">Inicio</span> ›{' '}
         <span onClick={() => navigate('/listing')} className="pd-link">Productos</span> ›{' '}
-        <span>{product.name || product.title}</span>
+        <span>{product.name}</span>
       </div>
 
       <div className="pd-grid">
-        {/* Image */}
+        {/* Imagen */}
         <div className="pd-image-col">
           <div className="pd-image">
             {product.image
@@ -161,8 +251,8 @@ const ProductDetail = () => {
             }
           </div>
           <div className="pd-badges">
-            <span className={`badge ${product.estado === 'nuevo' || product.condition === 'new' ? 'badge-nuevo' : 'badge-usado'}`}>
-              {product.estado === 'nuevo' || product.condition === 'new' ? 'Nuevo' : 'Usado'}
+            <span className={`badge ${product.condition === 'new' ? 'badge-nuevo' : 'badge-usado'}`}>
+              {product.condition === 'new' ? 'Nuevo' : 'Usado'}
             </span>
             {product.category && (
               <span className="badge" style={{ background: '#f4f6fb', color: 'var(--muted)' }}>{product.category}</span>
@@ -172,7 +262,7 @@ const ProductDetail = () => {
 
         {/* Info */}
         <div className="pd-info-col">
-          <h1 className="pd-title">{product.name || product.title}</h1>
+          <h1 className="pd-title">{product.name}</h1>
           <div className="pd-price">{formatPrice(product.price)}</div>
 
           <div className="pd-stock">
@@ -187,22 +277,35 @@ const ProductDetail = () => {
             <p>{product.description}</p>
           </div>
 
+          {/* Info del vendedor */}
           {product.seller && (
             <div className="pd-seller">
               <div className="pd-seller-avatar">👤</div>
               <div>
                 <div className="pd-seller-name">{product.seller.name}</div>
                 <div className="pd-seller-email">{product.seller.email}</div>
-                {reviewsMeta.totalReviews > 0 && (
+
+                {/* Rating del vendedor: solo si tiene ≥20 calificaciones */}
+                {sellerRating !== null ? (
                   <div className="pd-seller-rating">
-                    <Stars rating={reviewsMeta.averageRating} />
-                    <span>{reviewsMeta.averageRating.toFixed(1)} ({reviewsMeta.totalReviews} reseña{reviewsMeta.totalReviews !== 1 ? 's' : ''})</span>
+                    <Stars rating={sellerRating} />
+                    <span style={{ marginLeft: 6, fontWeight: 600, color: '#C9A84C' }}>
+                      {sellerRating.toFixed(1)}
+                    </span>
+                    <span style={{ marginLeft: 4, color: 'var(--muted)', fontSize: 13 }}>
+                      · calificación del vendedor
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                    Sin calificación pública aún
                   </div>
                 )}
               </div>
             </div>
           )}
 
+          {/* Acciones de compra */}
           {!isOwner && inStock && (
             <div className="pd-actions">
               <div className="pd-qty">
@@ -247,34 +350,92 @@ const ProductDetail = () => {
         </div>
       </div>
 
-      {/* Reviews section */}
-      {reviews.length > 0 && (
-        <div className="pd-reviews">
-          <div className="pd-reviews-header">
-            <h2>Reseñas del vendedor</h2>
+      {/* ── Sección de Reseñas ────────────────────────────────────────────── */}
+      <div className="pd-reviews">
+        <div className="pd-reviews-header">
+          <h2>Reseñas de este producto</h2>
+          {reviews.length > 0 && reviewsAvg !== null && (
             <div className="pd-reviews-avg">
-              <Stars rating={reviewsMeta.averageRating} />
-              <span className="pd-avg-num">{reviewsMeta.averageRating.toFixed(1)}</span>
-              <span className="pd-avg-total">({reviewsMeta.totalReviews} reseñas)</span>
+              <Stars rating={reviewsAvg} />
+              <span className="pd-avg-num">{reviewsAvg.toFixed(1)}</span>
+              <span className="pd-avg-total">({reviews.length} reseña{reviews.length !== 1 ? 's' : ''})</span>
             </div>
-          </div>
+          )}
+          {reviews.length > 0 && reviewsAvg === null && (
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+              {reviews.length} reseña{reviews.length !== 1 ? 's' : ''} · promedio visible desde 20 calificaciones
+            </span>
+          )}
+        </div>
+
+        {/* Lista de reseñas */}
+        {reviews.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 14, marginTop: 8 }}>
+            Aún no hay reseñas para este producto. ¡Sé el primero!
+          </p>
+        ) : (
           <div className="pd-reviews-grid">
             {reviews.map(r => (
-              <div key={r.reviewId || r.id} className="pd-review-card">
+              <div key={r.id} className="pd-review-card">
                 <div className="pd-review-top">
-                  <div className="pd-review-avatar">{(r.buyerName || 'U').charAt(0)}</div>
-                  <div>
-                    <div className="pd-review-name">{r.buyerName || 'Comprador'}</div>
-                    <Stars rating={r.rating} />
+                  <div className="pd-review-avatar">
+                    {(r.buyer?.name || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div className="pd-review-name">{r.buyer?.name || 'Comprador'}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Stars rating={r.rating} />
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                        {r.createdAt ? formatDate(r.createdAt) : ''}
+                      </span>
+                    </div>
                   </div>
                   <span className="pd-review-rating">{r.rating}/5</span>
                 </div>
                 {r.comment && <p className="pd-review-comment">{r.comment}</p>}
+                {/* Marca si es la reseña del usuario actual */}
+                {r.buyerId === user?.id && (
+                  <span style={{ fontSize: 11, color: '#2C5FA8', fontWeight: 600 }}>← Tu reseña</span>
+                )}
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Formulario de reseña */}
+        {!isAuthenticated && (
+          <div className="pd-review-cta">
+            <p>¿Compraste este producto?{' '}
+              <span className="pd-link" onClick={() => navigate('/login')}>Inicia sesión</span>{' '}
+              para dejar tu reseña.
+            </p>
+          </div>
+        )}
+
+        {isAuthenticated && isOwner && (
+          <div className="pd-review-cta">
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+              No puedes reseñar tus propios productos.
+            </p>
+          </div>
+        )}
+
+        {alreadyReviewed && (
+          <div className="pd-review-cta">
+            <p style={{ color: '#1A7A3A', fontSize: 13 }}>✅ Ya dejaste tu reseña para este producto.</p>
+          </div>
+        )}
+
+        {canReview && (
+          <ReviewForm
+            productId={id}
+            onSubmitted={() => {
+              // Recargar reseñas y producto tras publicar
+              loadAll();
+            }}
+          />
+        )}
+      </div>
 
       {showReport && (
         <ReportModal
