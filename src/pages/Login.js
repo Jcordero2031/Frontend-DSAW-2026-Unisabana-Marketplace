@@ -37,7 +37,9 @@ const Login = () => {
     setLoading(true);
     const result = await login(email, password);
     if (result.success) {
-      navigate(from, { replace: true });
+      const roles = result.user?.roles || [];
+      const destination = roles.includes('admin') ? '/admin' : from;
+      navigate(destination, { replace: true });
     } else {
       setError(result.error || 'Correo o contraseña incorrectos');
     }
