@@ -4,11 +4,17 @@ import { conversationService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './ConversationDetail.css';
 
-const formatTime = (iso) =>
-  new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+const formatTime = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+};
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+const formatDate = (iso) => {
+  if (!iso) return 'Hoy';
+  const d = new Date(iso);
+  return isNaN(d) ? 'Hoy' : d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+};
 
 const ConversationDetail = () => {
   const { id } = useParams();
@@ -24,12 +30,13 @@ const ConversationDetail = () => {
 
   const loadMessages = useCallback(async () => {
     try {
-      const [convRes, msgRes] = await Promise.all([
-        conversationService.getById(id),
-        conversationService.getMessages(id, { page: 1, limit: 100 }),
-      ]);
-      setConv(convRes.data.conversation || convRes.data);
-      const msgs = msgRes.data.messages || msgRes.data || [];
+      const convRes = await conversationService.getById(id);
+      const convData = convRes.data.conversation || convRes.data;
+      setConv(convData);
+      // El backend incluye los mensajes dentro del objeto conversación
+      // También intentamos el endpoint independiente como fallback
+      const msgs = convData.messages
+        ?? (await conversationService.getMessages(id).then(r => r.data.messages || []).catch(() => []));
       setMessages(msgs);
     } catch {
       setError('No se pudo cargar la conversación');
@@ -50,7 +57,10 @@ const ConversationDetail = () => {
     setSending(true);
     try {
       const res = await conversationService.sendMessage(id, { content: text.trim() });
-      const newMsg = res.data.message || res.data;
+      // Backend responde { success, message: { id, senderId, content, createdAt, ... } }
+      const newMsg = res.data.message && typeof res.data.message === 'object'
+        ? res.data.message
+        : res.data.data || res.data;
       setMessages(prev => [...prev, newMsg]);
       setText('');
     } catch {
@@ -68,8 +78,12 @@ const ConversationDetail = () => {
 
   if (loading) return <div className="flex-center" style={{ minHeight: '60vh' }}><div className="spinner" /></div>;
 
-  const otherUser = conv?.otherUser || conv?.buyerName || conv?.sellerName || 'Usuario';
-  const productTitle = conv?.productTitle || conv?.product?.name || '';
+  // El backend retorna buyer y seller como objetos { id, name }
+  const otherUserObj = conv
+    ? (conv.buyerId === user?.id ? conv.seller : conv.buyer)
+    : null;
+  const otherUser = otherUserObj?.name || conv?.otherUser?.name || conv?.otherUser || 'Usuario';
+  const productTitle = conv?.product?.name || conv?.productTitle || '';
 
   let lastDate = null;
 
